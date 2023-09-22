@@ -532,3 +532,41 @@ fn type_with_unknowns() {
     let deserialized = TypeWithUnknowns::tls_deserialize_exact(incoming);
     assert!(matches!(deserialized, Err(Error::UnknownValue(3))));
 }
+
+#[cfg(feature = "verifiable_structs")]
+mod verifiable {
+    use tls_codec::{Deserialize, DeserializeBytes, Serialize};
+    use tls_codec_derive::{verifiable, TlsSerialize, TlsSize};
+
+    #[test]
+    fn verifiable_struct() {
+        #[verifiable(Reader)]
+        #[derive(TlsSize, TlsSerialize, PartialEq, Debug)]
+        struct ExampleStruct {
+            a: u8,
+            b: u16,
+        }
+        let verified_struct = VerifiedExampleStruct { a: 1, b: 2 };
+        let serialized = verified_struct.tls_serialize_detached().unwrap();
+        let unverified_struct =
+            UnverifiedExampleStruct::tls_deserialize(&mut serialized.as_slice()).unwrap();
+        assert_eq!(unverified_struct.a, verified_struct.a);
+        assert_eq!(unverified_struct.b, verified_struct.b);
+    }
+
+    #[test]
+    fn verifiable_struct_bytes() {
+        #[verifiable(Bytes)]
+        #[derive(TlsSize, TlsSerialize, PartialEq, Debug)]
+        struct ExampleStruct {
+            a: u8,
+            b: u16,
+        }
+        let verified_struct = VerifiedExampleStruct { a: 1, b: 2 };
+        let serialized = verified_struct.tls_serialize_detached().unwrap();
+        let unverified_struct =
+            UnverifiedExampleStruct::tls_deserialize_exact(&mut &*serialized).unwrap();
+        assert_eq!(unverified_struct.a, verified_struct.a);
+        assert_eq!(unverified_struct.b, verified_struct.b);
+    }
+}
